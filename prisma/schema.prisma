@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Direction {
+  NORTH
+  SOUTH
+  EAST
+  WEST
+}
+
+enum SignalState {
+  RED
+  YELLOW
+  GREEN
+  UNKNOWN
+}
+
+enum Phase {
+  NS_GREEN
+  NS_YELLOW
+  ALL_RED
+  EW_GREEN
+  EW_YELLOW
+}
+
+enum Mode {
+  AUTOMATIC
+  MANUAL
+  EMERGENCY
+  DEGRADED
+}
+
+enum VehicleType {
+  EMERGENCY
+  TRUCK
+  FORKLIFT
+  EMPLOYEE_VEHICLE
+}
+
+enum EventResult {
+  APPLIED
+  DUPLICATE
+  REJECTED_INVALID
+  REJECTED_NO_ARRIVAL
+  REJECTED_OUT_OF_ORDER
+  REJECTED_STALE
+  REJECTED_DUPLICATE_VEHICLE
+}
+
+enum ControllerStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  UNKNOWN
+}
+
+enum CommandStatus {
+  PENDING
+  ACKED
+  FAILED
+  TIMED_OUT
+  ABANDONED_ON_RESTART
+}
+
+enum SensorStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  UNKNOWN
+}
+
+model Junction {
+  id                String            @id
+  name              String
+  config            Json
+  mode              Mode              @default(AUTOMATIC)
+  phase             Phase             @default(ALL_RED)
+  desiredSignals    Json
+  actualSignals     Json
+  controllerStatus  ControllerStatus  @default(UNKNOWN)
+  phaseStartedAt    DateTime          @default(now())
+  phaseEndsAt       DateTime?
+  nextPhaseTarget   Phase?
+  manualUntil       DateTime?
+  manualDirection   Direction?
+  emergencyDirection Direction?
+  emergencySince    DateTime?
+  version           Int               @default(0)
+  lastTickAt        DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  queues            QueueVehicle[]
+  processedEvents   ProcessedEvent[]
+  sensorStates      DirectionSensorState[]
+  controllerCommands ControllerCommand[]
+  auditLogs         AuditLog[]
+
+  @@index([mode])
+  @@index([controllerStatus])
+}
+
+model QueueVehicle {
+  id          String      @id @default(uuid())
+  junctionId  String
+  direction   Direction
+  vehicleId   String
+  vehicleType VehicleType
+  status      String      @default("WAITING") // WAITING/CLEARED
+  arrivedAt   DateTime
+  receivedAt  DateTime    @default(now())
+  clearedAt   DateTime?
+
+  junction Junction @relation(fields: [junctionId], references: [id])
+
+  @@index([junctionId, direction, status])
+  @@index([junctionId, status])
+  @@index([vehicleId])
+}
+
+model ProcessedEvent {
+  id          String      @id @default(uuid())
+  eventId     String      @unique
+  junctionId  String
+  direction   Direction?
+  sequenceNo  Int?
+  result      EventResult
+  receivedAt  DateTime    @default(now())
+
+  junction Junction @relation(fields: [junctionId], references: [id])
+
+  @@index([junctionId, receivedAt])
+}
+
+model DirectionSensorState {
+  junctionId      String
+  direction       Direction
+  lastSequenceNo  Int         @default(0)
+  sensorStatus    SensorStatus @default(UNKNOWN)
+
+  junction Junction @relation(fields: [junctionId], references: [id])
+
+  @@id([junctionId, direction])
+  @@index([junctionId])
+}
+
+model ControllerCommand {
+  id            String        @id
+  junctionId    String
+  direction     Direction?
+  requestedState SignalState?
+  status        CommandStatus @default(PENDING)
+  attempts      Int           @default(0)
+  sentAt        DateTime      @default(now())
+  ackedAt       DateTime?
+  actualState   SignalState?
+
+  junction Junction @relation(fields: [junctionId], references: [id])
+
+  @@index([junctionId, status])
+  @@index([status, sentAt])
+  @@unique([id])
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  junctionId   String
+  eventType    String
+  direction    Direction?
+  previousState Json?
+  newState      Json?
+  commandId     String?
+  reason       String?
+  details      Json?
+  timestamp    DateTime    @default(now())
+
+  junction Junction @relation(fields: [junctionId], references: [id])
+
+  @@index([junctionId, timestamp])
+}

@@ -1,0 +1,14 @@
+export const constants = {
+  GREEN_MS: 30000,
+  YELLOW_MS: 5000,
+  ALL_RED_MS: 2000,
+  MIN_GREEN_MS: 10000,
+  ACK_TIMEOUT_MS: 5000,
+  MAX_RETRIES: 1,
+  MANUAL_TTL_MS: 300000,
+  EMERGENCY_STALE_MS: 60000,
+  MAX_WAIT_MS: 90000,
+} as const;
+
+
+

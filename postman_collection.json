@@ -1,0 +1,16 @@
+{
+  "info": { "name": "Traffic Management API", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    { "name": "Health", "request": { "method": "GET", "url": "{{baseUrl}}/api/health" } },
+    { "name": "Get Junctions", "request": { "method": "GET", "url": "{{baseUrl}}/api/junctions" } },
+    { "name": "Get Junction A Status", "request": { "method": "GET", "url": "{{baseUrl}}/api/junctions/A/status" } },
+    { "name": "Sensor Event ARRIVED", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "url": "{{baseUrl}}/api/sensor-events", "body": { "mode": "raw", "raw": "{\"event_id\":\"e_test\",\"junction_id\":\"A\",\"direction\":\"NORTH\",\"event_type\":\"VEHICLE_ARRIVED\",\"vehicle_id\":\"v_test\",\"vehicle_type\":\"TRUCK\",\"sequence_no\":1,\"timestamp\":\"{{now}}\"}" } } },
+    { "name": "Manual Green Request", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "url": "{{baseUrl}}/api/junctions/A/commands", "body": { "mode": "raw", "raw": "{\"command\":\"MANUAL_GREEN_REQUEST\",\"direction\":\"NORTH\"}" } } },
+    { "name": "Return to Automatic", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "url": "{{baseUrl}}/api/junctions/A/commands", "body": { "mode": "raw", "raw": "{\"command\":\"RETURN_TO_AUTOMATIC\"}" } } },
+    { "name": "Controller Event ACK", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "url": "{{baseUrl}}/api/controller-events", "body": { "mode": "raw", "raw": "{\"command_id\":\"cmd_placeholder\",\"junction_id\":\"A\",\"status\":\"ACK\",\"actual_state\":\"RED\"}" } } },
+    { "name": "Device Status", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "url": "{{baseUrl}}/api/device-status", "body": { "mode": "raw", "raw": "{\"junction_id\":\"A\",\"device\":\"SIGNAL_CONTROLLER\",\"status\":\"ONLINE\"}" } } },
+    { "name": "History", "request": { "method": "GET", "url": "{{baseUrl}}/api/junctions/A/history" } },
+    { "name": "Queues", "request": { "method": "GET", "url": "{{baseUrl}}/api/junctions/A/queues" } }
+  ],
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3000" }, { "key": "now", "value": "2026-10-08T06:00:00Z" }]
+}
