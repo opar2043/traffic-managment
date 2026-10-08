@@ -125,6 +125,7 @@ export class JunctionRunner {
   }
 
   async persistAndSend(res: { state: JunctionState; commands: ControllerCommandState[]; audits: AuditEvent[] }, junctionId: string, version: number) {
+    const commands = res.commands;
     await prisma.$transaction(async (tx) => {
       // update junction with optimistic concurrency
       try {
@@ -150,7 +151,7 @@ export class JunctionRunner {
         // optimistic lock failed; ignore in simple impl
       }
       // create commands
-      for (const c of res.commands) {
+      for (const c of commands) {
         await tx.controllerCommand.upsert({
           where: { id: c.id },
           update: { status: c.status as any, attempts: c.attempts, sentAt: c.sentAt },
@@ -164,7 +165,6 @@ export class JunctionRunner {
             sentAt: c.sentAt,
           },
         });
-        await simulator.sendCommand(c);
       }
       // create audits
       for (const a of res.audits) {
@@ -181,7 +181,11 @@ export class JunctionRunner {
           },
         });
       }
-    });
+    }, { timeout: 15000, maxWait: 5000 });
+    // controller notification is a side effect: run it after the commit
+    for (const c of commands) {
+      await simulator.sendCommand(c);
+    }
   }
 
   async handleAck(commandId: string, status: 'ACK' | 'NACK' | 'FAILED', actualState?: string) {
