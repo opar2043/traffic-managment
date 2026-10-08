@@ -213,15 +213,23 @@ export class JunctionRunner {
       if (age > constants.ACK_TIMEOUT_MS) {
         const attempts = c.attempts + 1;
         if (attempts <= constants.MAX_RETRIES) {
-          // retry
-          await prisma.controllerCommand.update({ where: { id: c.id }, data: { attempts, sentAt: now } });
+          // retry only if it is still PENDING (an ACK may have landed concurrently)
+          const retried = await prisma.controllerCommand.updateMany({
+            where: { id: c.id, status: 'PENDING' },
+            data: { attempts, sentAt: now },
+          });
+          if (retried.count === 0) continue;
           await prisma.auditLog.create({ data: { junctionId: c.junctionId, eventType: 'CONTROLLER_TIMEOUT', commandId: c.id, reason: `Retry attempt ${attempts}` } });
           // send again
           await simulator.sendCommand({ ...c, attempts, sentAt: now } as any);
         } else {
-          // timeout
+          // timeout only if it is still PENDING
+          const timedOut = await prisma.controllerCommand.updateMany({
+            where: { id: c.id, status: 'PENDING' },
+            data: { status: 'TIMED_OUT' },
+          });
+          if (timedOut.count === 0) continue;
           await prisma.$transaction(async (tx) => {
-            await tx.controllerCommand.update({ where: { id: c.id }, data: { status: 'TIMED_OUT' } });
             await tx.junction.updateMany({ where: { id: c.junctionId, controllerStatus: { not: 'DEGRADED' } }, data: { controllerStatus: 'DEGRADED', mode: 'DEGRADED' } });
             await tx.auditLog.create({ data: { junctionId: c.junctionId, eventType: 'CONTROLLER_TIMEOUT', commandId: c.id, reason: 'Command TIMED_OUT' } });
           });
